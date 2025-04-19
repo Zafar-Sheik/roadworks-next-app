@@ -1,8 +1,10 @@
+//Execute mongoose connection to connect this project to mongodb
+
 import mongoose from "mongoose";
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
-const connect = async () => {
+const connectDB = async () => {
   const connectionState = mongoose.connection.readyState;
 
   if (connectionState === 1) {
@@ -27,4 +29,4 @@ const connect = async () => {
   }
 };
 
-export default connect;
+export default connectDB;

@@ -1,34 +1,51 @@
+// app/api/auth/login/route.ts
+import connectDB from "@/lib/db";
+import User from "@/lib/models/User";
+import bcrypt from "bcrypt";
+import jwt, { JwtPayload } from "jsonwebtoken";
 import { NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
-import { User } from "@/lib/models/User";
-import connect from "@/lib/db";
 
-export async function POST(req: Request) {
-  await connect;
+const JWT_SECRET = process.env.JWT_SECRET;
 
-  const { email, password } = await req.json();
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET is not defined in environment variables");
+}
 
-  const user = await User.findOne({ email }).select("+password");
-  if (!user) {
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-  }
+export async function POST(request: Request) {
+  try {
+    await connectDB();
 
-  // Type assertion to ensure TypeScript recognizes the method
-  const isValid = await user.comparePassword(password);
-  if (!isValid) {
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-  }
+    const { email, password } = await request.json();
 
-  // When creating tokens, ensure the payload matches CustomJwtPayload
-  const token = jwt.sign(
-    {
-      userId: user._id,
+    const user = await User.findOne({ email });
+    if (!user) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 }
+      );
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 }
+      );
+    }
+
+    const payload: JwtPayload = {
+      _id: user._id.toString(),
       role: user.role,
       company: user.company,
-    },
-    process.env.JWT_SECRET!,
-    { expiresIn: "1d" }
-  );
+      email: user.email,
+    };
 
-  return NextResponse.json({ token });
+    const token = jwt.sign(payload, JWT_SECRET as string, {
+      expiresIn: "7d",
+    });
+
+    return NextResponse.json({ success: true, token });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }
