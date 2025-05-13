@@ -6,7 +6,11 @@ import {
   BriefcaseIcon,
 } from "@heroicons/react/24/outline";
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default async function Layout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
