@@ -1,3 +1,4 @@
+// app/user/dashboard/page.tsx
 import { redirect } from "next/navigation";
 import { checkRole } from "@/utils/roles";
 import { SearchJobs } from "./SearchJobs";
@@ -5,30 +6,31 @@ import { currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 
 export default async function UserDashboard(params: {
-  searchParams: Promise<{ search?: string }>;
+  searchParams: { search?: string };
 }) {
-  // Authentication checks
+  // Authentication and authorization check
   if (!checkRole("user")) {
     redirect("/");
   }
 
-  // Get current user
+  // Get current Clerk user
   const user = await currentUser();
   if (!user) {
     redirect("/");
   }
 
   // Get search query parameter
-  const query = (await params.searchParams).search;
+  const searchQuery = params.searchParams?.search || "";
 
-  // Build API URL with user ID and optional search
-  const apiUrl = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/jobs`);
-  apiUrl.searchParams.append("userId", user.id);
-  if (query) {
-    apiUrl.searchParams.append("search", query);
+  // Build API URL with user ID path parameter
+  const apiUrl = new URL(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/jobs/user/${user.id}`
+  );
+  if (searchQuery) {
+    apiUrl.searchParams.append("search", searchQuery);
   }
 
-  // Fetch user-specific jobs
+  // Fetch user-specific jobs with search filter
   let jobs = [];
   try {
     const response = await fetch(apiUrl.toString(), {
@@ -53,11 +55,16 @@ export default async function UserDashboard(params: {
 
   return (
     <div className="container mx-auto p-4">
-      <div className="mb-4 flex justify-between items-center">
-        <SearchJobs />
+      <div className="mb-4 flex flex-col md:flex-row justify-between items-center gap-4">
+        <h1 className="text-2xl font-bold text-gray-900">
+          Your Jobs ({jobs.length})
+        </h1>
+        <div className="w-full md:w-auto">
+          <SearchJobs />
+        </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="overflow-x-auto rounded-lg border shadow-sm">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -82,16 +89,30 @@ export default async function UserDashboard(params: {
             {jobs.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                  {query ? "No matching jobs found" : "No jobs available yet"}
+                  {searchQuery
+                    ? "No matching jobs found"
+                    : "No jobs assigned yet"}
                 </td>
               </tr>
             ) : (
               jobs.map((job: any) => (
-                <tr key={job._id}>
-                  <td className="px-6 py-4 whitespace-nowrap">{job.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{job.company}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {job.jobType.join(", ")}
+                <tr key={job._id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
+                    {job.name}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-gray-700">
+                    {job.company}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-gray-700">
+                    <div className="flex flex-wrap gap-1">
+                      {job.jobType.map((type: string) => (
+                        <span
+                          key={type}
+                          className="px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full">
+                          {type}
+                        </span>
+                      ))}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
@@ -103,11 +124,11 @@ export default async function UserDashboard(params: {
                       {job.isActive ? "Active" : "Inactive"}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap space-x-2">
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <Link
                       href={`/user/jobs/${job._id}`}
-                      className="text-blue-600 hover:text-blue-900">
-                      Open Job
+                      className="text-blue-600 hover:text-blue-900 font-medium text-sm">
+                      View Details →
                     </Link>
                   </td>
                 </tr>

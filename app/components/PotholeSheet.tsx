@@ -1,294 +1,200 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
+import {
+  calculateArea,
+  calculateVolume,
+  calculateMaterials,
+} from "@/lib/utils";
 
-// Type definitions
-type Dimensions = {
-  length: string;
-  width: string;
-  depth: string;
-};
-
-type Materials = {
-  bags: string;
-  kg: number;
-};
-
-type Signature = {
-  name: string;
-  signature: string;
-  date: string;
-};
-
-interface MeasurementRow {
-  date: string;
-  location: string;
-  dimensions: Dimensions;
-  materials: Materials;
-  weather: string;
-}
-
-interface Metrics {
-  area: string;
-  volume: string;
-  kg: string;
-}
-
-interface MeasurementRowProps {
-  row: MeasurementRow;
-  rowIndex: number;
-  metrics: Metrics;
-  onChange: (rowIndex: number, path: string, value: string) => void;
-}
-
-interface SignatureSectionProps {
-  role: "contractor" | "engineer";
-  signature: Signature;
-  onChange: (signature: Signature) => void;
-}
-
-interface InputProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange"> {
-  className?: string;
-  onChange: (value: string) => void;
-}
-
-// Initial values
-const initialRow: MeasurementRow = {
-  date: "",
-  location: "",
-  dimensions: { length: "", width: "", depth: "" },
-  materials: { bags: "", kg: 0 },
-  weather: "",
-};
-
-const initialSignature: Signature = {
-  name: "",
-  signature: "",
-  date: "",
-};
-
-// Main component
 export default function PotholeSheet() {
-  const [rows, setRows] = useState<MeasurementRow[]>(() =>
-    Array(3)
-      .fill(initialRow)
-      .map((r) => ({ ...r }))
-  );
-  const [signatures, setSignatures] = useState<{
-    contractor: Signature;
-    engineer: Signature;
-  }>({
-    contractor: { ...initialSignature },
-    engineer: { ...initialSignature },
-  });
+  const params = useParams();
+  const jobId = params.id as string; // Get ID from URL params
+  const router = useRouter();
 
-  const calculateMetrics = (dimensions: Dimensions, bags: string): Metrics => {
-    const toFloat = (n: string): number => parseFloat(n) || 0;
-    const [l, w, d] = [
-      toFloat(dimensions.length),
-      toFloat(dimensions.width),
-      toFloat(dimensions.depth),
-    ];
-    const bagCount = toFloat(bags);
+  const [dimensions, setDimensions] = useState({ l: 0, w: 0, d: 0 });
+  const [bags, setBags] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-    return {
-      area: (l * w).toFixed(2),
-      volume: (l * w * d).toFixed(2),
-      kg: (bagCount * 25).toFixed(1),
-    };
-  };
+  // Calculate derived values
+  const area = calculateArea(dimensions.l, dimensions.w);
+  const volume = calculateVolume(dimensions.l, dimensions.w, dimensions.d);
+  const materials = calculateMaterials(bags);
 
-  const updateRow = (rowIndex: number, path: string, value: string) => {
-    setRows((prev) =>
-      prev.map((row, i) =>
-        i === rowIndex ? updateNestedField(row, path, value) : row
-      )
-    );
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Client-side validation
+      if (dimensions.l <= 0 || dimensions.w <= 0 || dimensions.d <= 0) {
+        throw new Error("All dimensions must be greater than 0");
+      }
+      if (bags <= 0) {
+        throw new Error("Number of cement bags must be at least 1");
+      }
+
+      const response = await fetch("/api/potholes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          job: jobId,
+          dimensions,
+          area: area,
+          volume: volume,
+          materialsInKg: materials,
+          numberOfBags: bags,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create pothole report");
+      }
+
+      // Handle successful submission
+      setSuccess(true);
+      setTimeout(() => router.push(`/user/jobs/${jobId}`), 2000);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "An unknown error occurred"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="bg-white rounded-xl border shadow-lg overflow-hidden">
-      <header className="p-6 border-b">
-        <h1 className="text-2xl font-bold text-gray-900">
-          🛠️ Pothole Repair Tracker
-        </h1>
-      </header>
+    <form
+      onSubmit={handleSubmit}
+      className="max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-md">
+      <div className="space-y-6">
+        {/* Status Indicators */}
+        {error && (
+          <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">
+            ⚠️ {error}
+          </div>
+        )}
 
-      <div className="overflow-x-auto p-4">
-        <table className="w-full table-fixed">
-          <TableHeader />
-          <tbody>
-            {rows.map((row, i) => (
-              <MeasurementRow
-                key={i}
-                row={row}
-                rowIndex={i}
-                metrics={calculateMetrics(row.dimensions, row.materials.bags)}
-                onChange={updateRow}
-              />
+        {success && (
+          <div className="p-4 bg-green-50 text-green-700 rounded-lg border border-green-200">
+            ✅ Report created successfully! Redirecting...
+          </div>
+        )}
+
+        {/* Dimensions Section */}
+        <div className="border-b pb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            Pothole Dimensions (meters)
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {["Length", "Width", "Depth"].map((label, index) => (
+              <div key={label}>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {label}
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onChange={(e) =>
+                    setDimensions({
+                      ...dimensions,
+                      [index === 0 ? "l" : index === 1 ? "w" : "d"]: parseFloat(
+                        e.target.value
+                      ),
+                    })
+                  }
+                  placeholder={`Enter ${label.toLowerCase()}`}
+                />
+              </div>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 bg-gray-50 border-t">
-        <SignatureSection
-          role="contractor"
-          signature={signatures.contractor}
-          onChange={(sig) =>
-            setSignatures((prev) => ({ ...prev, contractor: sig }))
-          }
-        />
-        <SignatureSection
-          role="engineer"
-          signature={signatures.engineer}
-          onChange={(sig) =>
-            setSignatures((prev) => ({ ...prev, engineer: sig }))
-          }
-        />
+        {/* Materials Section */}
+        <div className="border-b pb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            Materials Used
+          </h2>
+          <div className="max-w-xs">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Number of Cement Bags (25kg each)
+            </label>
+            <input
+              type="number"
+              min="1"
+              required
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              onChange={(e) =>
+                setBags(Math.max(1, parseInt(e.target.value)) || 1)
+              }
+              placeholder="Enter number of bags"
+            />
+          </div>
+        </div>
+
+        {/* Calculations Dashboard */}
+        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">
+            Calculated Values
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white p-3 rounded-md shadow-sm border border-blue-100">
+              <p className="text-sm text-gray-600 mb-1">Surface Area</p>
+              <p className="text-xl font-bold text-blue-600">
+                {area.toFixed(2)} m²
+              </p>
+            </div>
+            <div className="bg-white p-3 rounded-md shadow-sm border border-blue-100">
+              <p className="text-sm text-gray-600 mb-1">Volume</p>
+              <p className="text-xl font-bold text-blue-600">
+                {volume.toFixed(2)} m³
+              </p>
+            </div>
+            <div className="bg-white p-3 rounded-md shadow-sm border border-blue-100">
+              <p className="text-sm text-gray-600 mb-1">Total Cement</p>
+              <p className="text-xl font-bold text-blue-600">{materials} kg</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Submit Button */}
+        <button
+          type="submit"
+          disabled={loading}
+          className={`w-full ${
+            loading
+              ? "bg-blue-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
+          } text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2`}>
+          {loading && (
+            <svg
+              className="animate-spin h-5 w-5 text-white"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24">
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          )}
+          {loading ? "Submitting..." : "Save Pothole Sheet"}
+        </button>
       </div>
-    </div>
+    </form>
   );
-}
-
-// Helper components
-const TableHeader = () => (
-  <thead className="bg-gray-100">
-    <tr>
-      {[
-        "Date",
-        "Location",
-        "Dimensions (m)",
-        "Area m²",
-        "Volume m³",
-        "Materials",
-        "Weather",
-      ].map((header) => (
-        <th
-          key={header}
-          className="p-3 text-left text-sm font-medium text-gray-500 uppercase">
-          {header}
-        </th>
-      ))}
-    </tr>
-  </thead>
-);
-
-const MeasurementRow: React.FC<MeasurementRowProps> = ({
-  row,
-  rowIndex,
-  metrics,
-  onChange,
-}) => (
-  <tr className="border-t hover:bg-gray-50 even:bg-gray-50/50">
-    <td className="p-3">
-      <Input
-        type="date"
-        value={row.date}
-        onChange={(v) => onChange(rowIndex, "date", v)}
-      />
-    </td>
-
-    <td className="p-3">
-      <Input
-        value={row.location}
-        placeholder="Enter location"
-        onChange={(v) => onChange(rowIndex, "location", v)}
-      />
-    </td>
-
-    <td className="p-3">
-      <div className="flex gap-2">
-        {(Object.keys(row.dimensions) as (keyof Dimensions)[]).map((dim) => (
-          <Input
-            key={dim}
-            type="number"
-            className="w-20"
-            placeholder={dim[0].toUpperCase()}
-            value={row.dimensions[dim]}
-            onChange={(v) => onChange(rowIndex, `dimensions.${dim}`, v)}
-          />
-        ))}
-      </div>
-    </td>
-
-    <td className="p-3 font-mono">{metrics.area}</td>
-    <td className="p-3 font-mono">{metrics.volume}</td>
-
-    <td className="p-3">
-      <div className="flex items-center gap-2">
-        <Input
-          type="number"
-          className="w-16"
-          value={row.materials.bags}
-          onChange={(v) => onChange(rowIndex, "materials.bags", v)}
-        />
-        <span className="text-gray-500">→</span>
-        <span className="font-mono">{metrics.kg}kg</span>
-      </div>
-    </td>
-
-    <td className="p-3">
-      <Input
-        value={row.weather}
-        placeholder="Sunny"
-        onChange={(v) => onChange(rowIndex, "weather", v)}
-      />
-    </td>
-  </tr>
-);
-
-const SignatureSection: React.FC<SignatureSectionProps> = ({
-  role,
-  signature,
-  onChange,
-}) => (
-  <div className="space-y-4">
-    <h3 className="text-lg font-medium text-gray-700 capitalize">
-      {role}'s Sign-off
-    </h3>
-    <Input
-      placeholder={`${role} Name`}
-      value={signature.name}
-      onChange={(v) => onChange({ ...signature, name: v })}
-    />
-    <Input
-      placeholder="Signature"
-      value={signature.signature}
-      onChange={(v) => onChange({ ...signature, signature: v })}
-    />
-    <Input
-      type="date"
-      value={signature.date}
-      onChange={(v) => onChange({ ...signature, date: v })}
-    />
-  </div>
-);
-
-// Utility components
-const Input: React.FC<InputProps> = ({
-  type = "text",
-  className = "",
-  onChange,
-  ...props
-}) => (
-  <input
-    type={type}
-    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all ${className}`}
-    onChange={(e) => onChange(e.target.value)}
-    {...props}
-  />
-);
-
-// Helper function with proper typing
-function updateNestedField<T extends Record<string, any>>(
-  obj: T,
-  path: string,
-  value: string
-): T {
-  const [root, nested] = path.split(".") as [keyof T, string?];
-
-  return nested
-    ? { ...obj, [root]: { ...obj[root], [nested]: value } }
-    : { ...obj, [root]: value };
 }
