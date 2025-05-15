@@ -1,16 +1,16 @@
 import connectDB from "@/lib/db";
-import Job from "@/lib/models/Jobs";
-import { NextResponse } from "next/server";
+import Jobs from "@/lib/models/Jobs";
+import { NextRequest, NextResponse } from "next/server";
 
 connectDB();
 
 // Get single job by ID
 export async function GET(
-  req: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const job = await Job.findById(params.id);
+    const job = await Jobs.findById(params.id);
 
     if (!job) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
@@ -29,7 +29,7 @@ export async function PUT(
 ) {
   try {
     const body = await req.json();
-    const updatedJob = await Job.findByIdAndUpdate(params.jobId, body, {
+    const updatedJob = await Jobs.findByIdAndUpdate(params.jobId, body, {
       new: true,
     });
     if (!updatedJob)

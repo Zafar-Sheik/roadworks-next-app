@@ -33,4 +33,4 @@ const JobSchema: Schema<IJobs> = new Schema(
 );
 
 export default mongoose.models.JobSchema ||
-  mongoose.model<IJobs>("Job", JobSchema);
+  mongoose.model<IJobs>("Jobs", JobSchema);
