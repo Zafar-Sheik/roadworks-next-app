@@ -41,7 +41,7 @@ export default function Home() {
           {/* Additional Links */}
           <div className="mt-12 text-sm text-gray-500">
             <Link
-              href="/user/jobs"
+              href="/user"
               className="hover:text-gray-700 transition-colors">
               Visit our dashboard →
             </Link>

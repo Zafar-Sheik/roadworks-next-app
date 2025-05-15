@@ -1,5 +1,5 @@
 import connectDB from "@/lib/db"; // Your DB connection utility
-import Job from "@/lib/models/Jobs";
+import Jobs from "@/lib/models/Jobs";
 import { NextResponse } from "next/server";
 
 // Connect to database
@@ -8,7 +8,7 @@ connectDB();
 // Get all jobs
 export async function GET() {
   try {
-    const jobs = await Job.find({});
+    const jobs = await Jobs.find({});
     return NextResponse.json(jobs);
   } catch (error) {
     return NextResponse.json(
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const newJob = new Job(body);
+    const newJob = new Jobs(body);
     await newJob.save();
 
     return NextResponse.json(newJob, { status: 201 });

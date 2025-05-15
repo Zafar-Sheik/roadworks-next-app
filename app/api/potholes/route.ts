@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import PotholeSheets from "@/lib/models/PotholeSheets";
-import Job from "@/lib/models/Jobs";
+import Jobs from "@/lib/models/Jobs";
 import connectDB from "@/lib/db";
 
 export async function POST(req: NextRequest) {
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate job exists
-    const job = await Job.findById(body.job);
+    const job = await Jobs.findById(body.job);
     if (!job) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
       volume: body.volume,
       materialsInKg: body.materialsInKg,
       numberOfBags: body.numberOfBags,
+      weather: body.weather,
     });
 
     // Save to database (pre-save hook will calculate derived values)
@@ -59,9 +60,23 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
   try {
-    const potholes = await PotholeSheets.find().populate("job");
-    return NextResponse.json(potholes);
+    await connectDB();
+
+    // Find all potholes and populate the job reference
+    const potholes = await PotholeSheets.find()
+      .populate({
+        path: "job",
+        select: "-__v", // Exclude the version key
+      })
+      .sort({ timestamp: -1 }); // Sort by newest first
+
+    if (!potholes || potholes.length === 0) {
+      return NextResponse.json({ error: "No potholes found" }, { status: 404 });
+    }
+
+    return NextResponse.json(potholes, { status: 200 });
   } catch (error) {
+    console.error("Error fetching potholes:", error);
     return NextResponse.json(
       { error: "Failed to fetch potholes" },
       { status: 500 }

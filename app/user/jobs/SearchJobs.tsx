@@ -1,25 +1,20 @@
+// app/user/jobs/SearchJobs.tsx
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 
-export const SearchJobs = () => {
+export function SearchJobs({ initialValue }: { initialValue: string }) {
   const router = useRouter();
-  const pathname = usePathname();
 
   return (
-    <div>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          const form = e.currentTarget;
-          const formData = new FormData(form);
-          const queryTerm = formData.get("search") as string;
-          router.push(pathname + "?search=" + queryTerm);
-        }}>
-        <label htmlFor="search">Search for jobs</label>
-        <input id="search" name="search" type="text" />
-        <button type="submit">Submit</button>
-      </form>
-    </div>
+    <input
+      type="text"
+      placeholder="Search jobs..."
+      defaultValue={initialValue}
+      onChange={(e) => {
+        router.push(`/user/jobs?search=${e.target.value}`);
+      }}
+      className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
+    />
   );
-};
+}
