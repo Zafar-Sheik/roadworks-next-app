@@ -74,7 +74,7 @@ export default async function AdminUsers(params: {
                     <div className="flex-1 space-y-1">
                       <div className="flex items-center gap-2">
                         <p className="font-medium">
-                          {user.firstName} {user.lastName}
+                          {user.firstName || "Username"} {user.lastName}
                         </p>
                         <RoleBadge role={user.publicMetadata.role as string} />
                       </div>

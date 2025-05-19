@@ -114,7 +114,7 @@ export default async function JobPage({
                             {sheet.dimensions.d}m
                           </p>
                           <p className="text-sm text-gray-500">
-                            {new Date(sheet.timestamp).toLocaleDateString()}
+                            {new Date(sheet.timestamp).toLocaleString()}
                           </p>
                         </div>
                         <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
