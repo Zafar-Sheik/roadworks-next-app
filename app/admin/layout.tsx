@@ -94,9 +94,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 isOpen={isOpen}
               />
               <SidebarLink
-                href="/admin/sheets"
+                href="/admin/pothole-sheets"
                 icon={PaperClipIcon}
-                text="Job Sheets"
+                text="Pothole Sheets"
                 isOpen={isOpen}
               />
             </ul>
